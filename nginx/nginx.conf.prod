@@ -1,0 +1,26 @@
+server {
+	#слушаем порт по умолчанию всегда у nginx 80
+	listen 80;
+
+	# имя сервера продакшн nginx файл
+	server_name realworld-docker.com;
+
+	# слэш все запросы которые на него придут будут проксированы\редиректнуты на фронт (хост фронт существует только в сети докер)
+	location / {
+		proxy_pass http://frontend:3000;
+	}
+
+	# все запросы на api будут перебросаны на /api
+	# rewrite чтобы url переписать с регуляркой
+	# берем то что в скобках и присваеваем это все $1
+	# проксируем все на сервис в данном случае 3001
+	location /api {
+		proxy_pass http://api:3001;
+		rewrite ^/api/(.*) /$1 break;
+	}
+
+	location /auth {
+		proxy_pass http://auth:3002;
+		rewrite ^/auth/(.*) /$1 break;
+	}
+}

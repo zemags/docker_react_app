@@ -1,0 +1,86 @@
+version: '3' # версия докера
+
+services: # сервисы
+  frontend:
+    build: # папка из которой будет строить все
+      context: ./frontend 
+      dockerfile: Dockerfile.prod # какой докерфайл брать прод или дев
+    container_name: realworld-docker-frontend # имя контейнера
+    command: serve -s build -l 3000 # какая команда выполнится в контейнере при запуске
+    # ports: # закоментили так как извне не будет досутпов так как сначала все запрос идут во внутреннюю сеть докера это безопасно
+    #   - "3000:3000" # порты в контейнере и во внешней машине
+    restart: unless-stopped # если будет ошибка докер будет перезапускать контейнер
+    networks:
+      - realworld-docker-network
+
+  api:
+    build: ./api
+    container_name: realworld-docker-api
+    command: npm run start
+    restart: unless-stopped
+    # ports:
+    #   - "3001:3001"
+    environment: # переменные окружения
+      - PORT=3001 
+      # - HOST=http://realworld-docker.com # как правило для redirect указывается HOST
+      - MONGO_URL=mongodb://api_db:27017/api
+      - AUTH_API_URL=http://auth:3002/api  # магический хост auth, чтобы любой сервис могу к нему обращаться как и остальные между собой
+    depends_on: # сначала запустить базу(указанный сервис в depends_on) потом сервис
+      - api_db
+    networks:
+      - realworld-docker-network
+
+  auth:
+    build: ./auth
+    container_name: realworld-docker-auth
+    command: npm run start
+    restart: unless-stopped
+    # ports:
+    #   - "3002:3002"
+    environment:
+      - PORT=3002
+      # - HOST=http://realworld-docker.com
+      - MONGO_URL=mongodb://auth_db:27017/auth
+      - API_URL=http://api:3001/api
+    depends_on:
+      - auth_db
+    networks:
+      - realworld-docker-network
+  
+  api_db:
+    image: mongo:latest # образ монги
+    container_name: realworld-docker-db
+    volumes:
+      - mongodb_api:/data/db # для баз данных нужны волюмы-хранилища, чтобы данные оставались
+    networks:
+      - realworld-docker-network
+
+  auth_db:
+    image: mongo:latest
+    container_name: realworld-docker-auth-db
+    volumes:
+      - mongodb_auth:/data/db
+    networks:
+      - realworld-docker-network
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: realworld-docker-nginx
+    ports:
+      - "80:80"
+    volumes: # будет файлк конфигурации nginx двоеточие ниже значит куда ложить файл с компа в контейнер
+      - ./nginx/nginx.conf.prod:/etc/nginx/conf.d/nginx.conf
+    depends_on: # если зависимые сервисы успешно запустятся то nginx запустится
+      - frontend # nginx упадет если не сомжет спроксировать запрос который ранится т.е. frontend
+      - api
+      - auth
+    networks:
+      - realworld-docker-network
+
+volumes: # определим в руте хранилища, потом можно использовать в любом сервисе\контейнере
+  mongodb_api:
+  mongodb_auth:
+
+networks:
+  realworld-docker-network:
+    driver: bridge

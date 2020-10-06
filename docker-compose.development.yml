@@ -1,0 +1,26 @@
+version: '3'
+
+services:
+  frontend:
+    build: # папка из которой будет строить все
+      context: ./frontend 
+      dockerfile: Dockerfile.dev # какой докерфайл брать прод или дев
+    command: npm run start
+    stdin_open: true # шел реакта чтобы работал в контейнере
+    tty: true # шел реакта чтобы работал в контейнере
+    volumes: # хранилище связь файлом симлинком если на тачке меняем то меняется и контейнер
+      - ./frontend/src:/usr/src/app/src #на лету изменять файлы
+  
+  api:
+    command: npm run dev
+    volumes:
+      - ./api/src:/usr/src/app/src
+
+  auth:
+    command: npm run dev
+    volumes:
+      - ./auth/src:/usr/src/app/src
+
+  nginx: # dev файл nginx
+    volumes: # будет файлк конфигурации nginx двоеточие ниже значит куда ложить файл с компа в контейнер
+      - ./nginx/nginx.conf.dev:/etc/nginx/conf.d/nginx.conf

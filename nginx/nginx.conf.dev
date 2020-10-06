@@ -1,0 +1,30 @@
+server {
+	#слушаем порт по умолчанию всегда у nginx 80
+	listen 80;
+
+	# имя сервера в dev, com заменили на local
+	server_name realworld-docker.local;
+
+	# слэш все запросы которые на него придут будут проксированы\редиректнуты на фронт (хост фронт существует только в сети докер)
+	location / {
+		proxy_pass http://frontend:3000;
+		# необходимые для сокетов настройки, т.е. когда в dev моде меняем файл нужно чтобы страница обновлялась, без этих настроек nginx это не может
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+	}
+
+	# все запросы на api будут перебросаны на /api
+	# rewrite чтобы url переписать с регуляркой
+	# берем то что в скобках и присваеваем это все $1
+	# проксируем все на сервис в данном случае 3001
+	location /api {
+		proxy_pass http://api:3001;
+		rewrite ^/api/(.*) /$1 break;
+	}
+
+	location /auth {
+		proxy_pass http://auth:3002;
+		rewrite ^/auth/(.*) /$1 break;
+	}
+}
